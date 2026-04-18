@@ -10,14 +10,6 @@
 
 O Brasil tem um paradoxo: existem vagas abertas em regiões onde os candidatos não estão mirando, por falta de informação. O CAGED registra tudo isso mensalmente. Este projeto automatiza a coleta, limpeza e visualização desses dados.
 
-### Dados de Fevereiro/2026
-
-- **+1.381 vagas em TI** (setor CNAE J)
-- **R$ 4.145** salário médio em TI
-- **38.149 admissões** em tecnologia
-- **São Paulo** lidera em saldo (+802)
-- **4.5M registros** processados
-
 ---
 
 ## Arquitetura
@@ -51,45 +43,123 @@ FTP do Ministério do Trabalho (ftp.mtps.gov.br)
 
 ---
 
-## Rodar o Dashboard
+## Como rodar o projeto do zero
 
-```bash
-pnpm install
-pnpm dev
-```
+### Pré-requisitos
 
-Acesse **http://localhost:3000**
+Antes de começar, certifique-se de ter instalado:
 
-O dashboard busca dados do **Supabase** via API Routes (`/api/caged`).
+- [Node.js 18+](https://nodejs.org)
+- [pnpm](https://pnpm.io) — `npm install -g pnpm`
+- [Python 3.10+](https://www.python.org)
+- Uma conta gratuita no [Supabase](https://supabase.com)
 
 ---
 
-## Rodar o Pipeline
+### Passo 1 — Criar o projeto no Supabase
 
-O pipeline Python baixa dados do FTP do Ministério do Trabalho e insere no Supabase.
-As tabelas são criadas automaticamente na primeira execução caso não existam.
+1. Acesse [supabase.com](https://supabase.com) e faça login
+2. Clique em **New project**
+3. Dê um nome (ex: `brjobs-insights`), escolha uma senha e selecione a região **South America (São Paulo)**
+4. Aguarde ~2 minutos até o projeto ficar pronto
+5. Vá em **Settings > API** e copie:
+   - `Project URL` → algo como `https://xyzabc.supabase.co`
+   - `anon public` → chave que começa com `eyJ...`
+   - `service_role` → chave que começa com `eyJ...` (mantenha em segredo)
 
-```bash
-cd scripts/pipeline
+---
 
-# Instalar dependências
-pip install py7zr pandas supabase requests
+### Passo 2 — Criar as tabelas no banco
 
-# Executar (processa o mês anterior ao atual)
-python run_pipeline.py
+1. No painel do Supabase, clique em **SQL Editor** no menu lateral
+2. Clique em **New query**
+3. Copie e cole todo o conteúdo do arquivo `scripts/001_create_tables.sql`
+4. Clique em **Run**
+5. Deve aparecer a mensagem: `Success. No rows returned`
 
-# Ou especificar ano e mês
-python run_pipeline.py 2026 2
-```
+---
 
-### Variáveis de ambiente necessárias
+### Passo 3 — Configurar as variáveis de ambiente
+
+Na raiz do projeto, crie um arquivo chamado `.env.local` com o seguinte conteúdo:
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://seu-projeto.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=sua-chave-service-role
+NEXT_PUBLIC_SUPABASE_ANON_KEY=sua-anon-key
+SUPABASE_SERVICE_ROLE_KEY=sua-service-role-key
 ```
 
-> As chaves ficam em **Settings > API** no painel do Supabase.
+Substitua os valores pelas chaves copiadas no Passo 1.
+
+---
+
+### Passo 4 — Instalar dependências e rodar o dashboard
+
+```bash
+# Instala as dependências do projeto
+pnpm install
+
+# Sobe o servidor de desenvolvimento
+pnpm dev
+```
+
+Abra o navegador em **http://localhost:3000**
+
+> Neste momento o dashboard vai abrir mas mostrar erro, pois o banco ainda está vazio. Isso é normal — continue para o próximo passo.
+
+---
+
+### Passo 5 — Rodar o pipeline e popular o banco
+
+O pipeline baixa os microdados do CAGED direto do FTP do Ministério do Trabalho, processa e insere no Supabase.
+
+```bash
+# Entra na pasta do pipeline
+cd scripts/pipeline
+
+# Instala as dependências Python
+pip install py7zr pandas supabase requests
+
+# Roda para um mês específico (recomendado começar com os mais recentes)
+python run_pipeline.py 2026 2    # Fevereiro/2026
+python run_pipeline.py 2026 1    # Janeiro/2026
+python run_pipeline.py 2025 12   # Dezembro/2025
+```
+
+> Cada mês leva entre 3 e 5 minutos para baixar e processar (~200MB por arquivo).
+> O pipeline cria as tabelas automaticamente se ainda não existirem.
+
+Para rodar o mês mais recente disponível automaticamente:
+
+```bash
+python run_pipeline.py
+```
+
+---
+
+### Passo 6 — Ver os dados no navegador
+
+1. Com o servidor rodando (`pnpm dev`), acesse **http://localhost:3000**
+2. O dashboard vai carregar com os dados reais do CAGED
+3. Use o seletor de mês no canto superior direito para alternar entre os meses carregados
+4. Explore os gráficos:
+   - **Mapa do Brasil** — saldo de vagas TI por estado (verde = positivo, vermelho = negativo)
+   - **Ranking de estados** — top 10 por saldo ou salário médio
+   - **Evolução temporal** — admissões vs demissões nos últimos meses
+   - **Diversidade de gênero** — distribuição por sexo nas contratações
+   - **Tabela detalhada** — todos os estados com busca e ordenação
+
+---
+
+## Variáveis de ambiente necessárias
+
+| Variável | Onde usar | Descrição |
+|----------|-----------|-----------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Dashboard + Pipeline | URL do projeto Supabase |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Dashboard | Chave pública (leitura) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Pipeline | Chave privada (escrita) |
+
+> Para o pipeline Python, as variáveis precisam estar no ambiente do terminal. No Windows use `$env:VARIAVEL="valor"` antes de rodar o script, ou configure no `.env` do sistema.
 
 ---
 
@@ -113,7 +183,7 @@ brjobs-insights/
 ├── lib/
 │   └── supabase/              # Clientes Supabase
 ├── scripts/
-│   ├── 001_create_tables.sql  # Schema do banco (referência)
+│   ├── 001_create_tables.sql  # Schema do banco
 │   └── pipeline/
 │       ├── extractor.py       # Download e limpeza do FTP
 │       ├── loader.py          # Carrega no Supabase
@@ -126,11 +196,13 @@ brjobs-insights/
 
 ## Tabelas do Banco
 
-- `monthly_summary` - Métricas agregadas por mês
-- `state_data` - Dados de admissões/demissões por estado
-- `timeline_data` - Série histórica mensal
-- `gender_data` - Distribuição por gênero
-- `job_records` - Registros detalhados (amostra)
+| Tabela | Descrição |
+|--------|-----------|
+| `monthly_summary` | Métricas agregadas por mês |
+| `state_data` | Admissões, demissões e saldo por estado |
+| `timeline_data` | Série histórica mensal |
+| `gender_data` | Distribuição por gênero |
+| `job_records` | Registros detalhados (amostra) |
 
 ---
 
