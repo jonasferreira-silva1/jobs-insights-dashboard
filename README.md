@@ -4,11 +4,42 @@
 
 > Pipeline de dados + dashboard que responde essa pergunta todo mês, usando os microdados públicos do **CAGED** (Cadastro Geral de Empregados e Desempregados).
 
+[![Deploy](https://img.shields.io/badge/Vercel-Produção-black?logo=vercel)](https://jobs-insights-dashboard.vercel.app)
+[![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org)
+[![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?logo=supabase)](https://supabase.com)
+[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python)](https://python.org)
+
+> **4,5M+ registros processados por mês · 27 estados · dados públicos do CAGED via FTP do Ministério do Trabalho**
+
+![BrJobsInsights Dashboard](public/dashboard.png)
+
+---
+
+## Demo
+
+O projeto está disponível em produção:
+
+**[https://jobs-insights-dashboard.vercel.app](https://jobs-insights-dashboard.vercel.app)**
+
+Hospedado na Vercel com deploy contínuo a partir da branch `main`. A cada `git push`, uma nova versão é publicada automaticamente.
+
 ---
 
 ## O que é
 
-O Brasil tem um paradoxo: existem vagas abertas em regiões onde os candidatos não estão mirando, por falta de informação. O CAGED registra tudo isso mensalmente. Este projeto automatiza a coleta, limpeza e visualização desses dados.
+Pipeline end-to-end que processa ~200MB de microdados brutos por mês direto do FTP do Ministério do Trabalho, filtra as ocupações de TI pela seção J do CNAE, agrega admissões e demissões por estado e entrega os resultados num dashboard interativo com mapa coroplético, ranking e série histórica.
+
+O Brasil tem um paradoxo: existem vagas abertas em regiões onde os candidatos não estão mirando, por falta de informação. O CAGED registra tudo isso mensalmente — mais de **4,5 milhões de registros por arquivo**. Este projeto automatiza a coleta, limpeza e visualização desses dados de forma que qualquer pessoa consiga responder, em segundos, onde o mercado de TI está crescendo.
+
+### Decisões técnicas
+
+| Decisão | Motivo |
+|---------|--------|
+| **Supabase** | PostgreSQL gerenciado com API REST pronta, RLS nativo e zero servidor para administrar |
+| **Next.js** | Backend e frontend no mesmo repositório, deploy em um clique no Vercel, API Routes sem infraestrutura adicional |
+| **pandas + ftplib** | Processamento eficiente de arquivos CSV de 200MB+ em memória, sem dependência de ferramentas externas |
+| **SWR** | Cache client-side com revalidação automática, evita requisições desnecessárias ao banco |
+| **react-simple-maps** | Mapa SVG leve e customizável, sem dependência de APIs de mapas externas |
 
 ---
 
@@ -203,6 +234,28 @@ brjobs-insights/
 | `timeline_data` | Série histórica mensal |
 | `gender_data` | Distribuição por gênero |
 | `job_records` | Registros detalhados (amostra) |
+
+---
+
+## Deploy na Vercel
+
+O projeto está configurado para deploy automático na Vercel. A cada push para a branch `main`, uma nova versão é publicada sem nenhuma intervenção manual.
+
+### Publicar sua própria instância
+
+1. Faça um fork do repositório
+2. Acesse [vercel.com](https://vercel.com) e importe o projeto pelo GitHub
+3. Configure as variáveis de ambiente no painel da Vercel (**Settings > Environment Variables**):
+
+| Variável | Descrição |
+|----------|-----------|
+| `NEXT_PUBLIC_SUPABASE_URL` | URL do seu projeto Supabase |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Chave pública (leitura) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Chave privada (escrita, usada apenas no pipeline) |
+
+4. Clique em **Deploy** — a Vercel detecta automaticamente o Next.js e configura o build
+
+> A `SUPABASE_SERVICE_ROLE_KEY` é usada apenas pelo pipeline Python local. No dashboard em produção, apenas as chaves `NEXT_PUBLIC_*` são necessárias.
 
 ---
 
